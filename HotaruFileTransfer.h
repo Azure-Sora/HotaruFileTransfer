@@ -6,6 +6,7 @@
 #include <QTcpSocket>
 #include <QTimer>
 #include <QTime>
+#include "ActiveDevice.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class HotaruFileTransferClass; };
@@ -18,6 +19,12 @@ class HotaruFileTransfer : public QMainWindow
 public:
     HotaruFileTransfer(QWidget *parent = nullptr);
     ~HotaruFileTransfer();
+    void deviceTimeout();
+    void refreshTable();
+    bool deviceExists(QHostAddress addr);
+
+    QList<ActiveDevice> devices;
+
 
 private:
     Ui::HotaruFileTransferClass *ui;

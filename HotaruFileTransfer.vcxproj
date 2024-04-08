@@ -86,8 +86,12 @@
     <QtRcc Include="HotaruFileTransfer.qrc" />
     <QtUic Include="HotaruFileTransfer.ui" />
     <QtMoc Include="HotaruFileTransfer.h" />
+    <ClCompile Include="ActiveDevice.cpp" />
     <ClCompile Include="HotaruFileTransfer.cpp" />
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="ActiveDevice.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
