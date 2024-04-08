@@ -4,6 +4,8 @@
 #include "ui_HotaruFileTransfer.h"
 #include <QUdpSocket>
 #include <QTcpSocket>
+#include <QTimer>
+#include <QTime>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class HotaruFileTransferClass; };
