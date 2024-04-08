@@ -19,12 +19,12 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     auto boardcastReceiver = new QUdpSocket(this);    
     connect(ui->btn_receive, &QPushButton::clicked, [=]() {
         ui->btn_receive->setDisabled(true);
+        deviceTimer->start(100);
         boardcastReceiver->bind(11451, QUdpSocket::ShareAddress);
         });
 
     connect(ui->btn_startService, &QPushButton::clicked, [=]() {
         boardcastTimer->start(250);
-        deviceTimer->start(100);
         ui->btn_startService->setDisabled(true);
         });
 
@@ -38,6 +38,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(deviceTimer, &QTimer::timeout, [=]() {
         deviceTimeout();
+        //refreshTable();
         });
 
     connect(boardcastReceiver, &QUdpSocket::readyRead, [=]() {
@@ -50,17 +51,17 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             boardcastReceiver->readDatagram(data.data(), data.size(), &host);
 
             //ui->deviceList->
-            if (!deviceExists(QHostAddress(host.toIPv4Address())))
+            //!deviceExists(QHostAddress(host.toIPv4Address()))
+            if (!devices.contains(QHostAddress(host.toIPv4Address())))
             {
                 auto newdevice = ActiveDevice(QHostAddress(host.toIPv4Address()), QString(data));
                 devices.append(newdevice);
                 refreshTable();
             }
-            
-
-            //ui->deviceList->insertRow(0);
-            //ui->deviceList->setItem(0, 0, new QTableWidgetItem(QHostAddress(host.toIPv4Address()).toString()));
-            //ui->deviceList->setItem(0, 1, new QTableWidgetItem(QString(data)));
+            else
+            {
+                devices[devices.indexOf(QHostAddress(host.toIPv4Address()))].lifeTime = 10;
+            }
         }
 
         });
@@ -75,6 +76,7 @@ void HotaruFileTransfer::deviceTimeout()
 {
     for (int i = 0; i < devices.size(); ++i)
     {
+        devices[i].lifeTime -= 1;
         if (devices[i].lifeTime <= 0)
         {
             devices.removeAt(i);
@@ -96,11 +98,3 @@ void HotaruFileTransfer::refreshTable()
     }
 }
 
-bool HotaruFileTransfer::deviceExists(QHostAddress addr)
-{
-    for (auto &de : devices)
-    {
-        if (de.IPAddr.isEqual(addr)) return true;
-    }
-    return false;
-}

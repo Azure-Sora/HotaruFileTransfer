@@ -13,6 +13,8 @@ public:
 	ActiveDevice(QHostAddress addr, QString status);
 	ActiveDevice(const ActiveDevice& other);
 	ActiveDevice& operator=(const ActiveDevice& other);
+	bool operator==(const ActiveDevice& other) const;
+	bool operator==(const QHostAddress& addr) const;
 	~ActiveDevice();
 
 	int lifeTime = 10;

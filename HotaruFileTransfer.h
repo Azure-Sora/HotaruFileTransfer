@@ -21,7 +21,6 @@ public:
     ~HotaruFileTransfer();
     void deviceTimeout();
     void refreshTable();
-    bool deviceExists(QHostAddress addr);
 
     QList<ActiveDevice> devices;
 
