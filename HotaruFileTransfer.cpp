@@ -1,4 +1,13 @@
-#include "HotaruFileTransfer.h"
+﻿#include "HotaruFileTransfer.h"
+
+/*
+* UDP port:
+* 11451:广播
+* 11452:建立连接
+* TCP port:
+* 11452:连接传输
+*/
+
 
 HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     : QMainWindow(parent)
@@ -10,26 +19,42 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     ui->deviceList->setColumnWidth(0, 300);
     ui->deviceList->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->deviceList->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->deviceList->setSelectionMode(QAbstractItemView::SingleSelection);
     //ui->deviceList->setItem(0, 0, new QTableWidgetItem("114.514"));
     //ui->deviceList->setItem(0, 1, new QTableWidgetItem("ready"));
 
     auto deviceTimer = new QTimer;
     auto boardcastTimer = new QTimer;
 
-    auto boardcastReceiver = new QUdpSocket(this);    
-    connect(ui->btn_receive, &QPushButton::clicked, [=]() {
-        ui->btn_receive->setDisabled(true);
-        deviceTimer->start(100);
-        boardcastReceiver->bind(11451, QUdpSocket::ShareAddress);
-        });
-
-    connect(ui->btn_startService, &QPushButton::clicked, [=]() {
-        boardcastTimer->start(250);
-        ui->btn_startService->setDisabled(true);
-        });
-
+    auto boardcastReceiver = new QUdpSocket(this);
     auto boardcast = new QUdpSocket(this);
-    connect(boardcastTimer, &QTimer::timeout, [=]() {
+    auto connectHelper = new QUdpSocket(this);
+
+    auto server = new QTcpServer(this);
+    auto socket = new QTcpSocket(this);
+    server->listen(QHostAddress::Any, 11452);
+
+    //connect(ui->btn_initService, &QPushButton::clicked, [=]() {//初始化广播
+    //    ui->btn_initService->setDisabled(true);
+    //    boardcastTimer->start(250);
+    //    deviceTimer->start(100);
+    //    boardcastReceiver->bind(QHostAddress::Any, 11451, QUdpSocket::ShareAddress);
+    //    });
+
+    connect(ui->btn_recv, &QPushButton::clicked, [=]() {//初始化接收广播
+        ui->btn_recv->setDisabled(true);
+        deviceTimer->start(100);
+        boardcastReceiver->bind(QHostAddress::Any, 11451, QUdpSocket::ShareAddress);
+        });
+
+    connect(ui->btn_start, &QPushButton::clicked, [=]() {//初始化发送广播
+        boardcastTimer->start(250);
+        connectHelper->bind(QHostAddress::Any, 11452, QUdpSocket::ShareAddress);
+        ui->btn_start->setDisabled(true);
+        });
+
+
+    connect(boardcastTimer, &QTimer::timeout, [=]() {//发送广播
         //auto time = QTime::currentTime();
         auto data = QByteArray("ready");
         //auto data = QByteArray(time.toString().toLocal8Bit());
@@ -41,7 +66,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         //refreshTable();
         });
 
-    connect(boardcastReceiver, &QUdpSocket::readyRead, [=]() {
+    connect(boardcastReceiver, &QUdpSocket::readyRead, [=]() {//接收广播
         while (boardcastReceiver->hasPendingDatagrams())
         {
             QByteArray data;
@@ -52,6 +77,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
             //ui->deviceList->
             //!deviceExists(QHostAddress(host.toIPv4Address()))
+            
+            
             if (!devices.contains(QHostAddress(host.toIPv4Address())))
             {
                 auto newdevice = ActiveDevice(QHostAddress(host.toIPv4Address()), QString(data));
@@ -64,6 +91,51 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             }
         }
 
+        });
+
+    connect(connectHelper, &QUdpSocket::readyRead, [=]() {
+        QByteArray data;
+        data.resize(connectHelper->pendingDatagramSize());
+        QHostAddress host;
+        //quint16 port;
+        connectHelper->readDatagram(data.data(), data.size(), &host);
+        if (QString(data).startsWith("connect"))
+        {
+
+            QMessageBox connectMessage(QMessageBox::Information, "有新的连接", QHostAddress(host.toIPv4Address()).toString() + "想要给您发送文件，将在5秒后自动拒绝", QMessageBox::Yes | QMessageBox::No, this);
+            QTimer::singleShot(5000, &connectMessage, &QMessageBox::close);
+            int ret = QMessageBox::No;
+            ret = connectMessage.exec();
+            if (ret == QMessageBox::Yes)
+            {
+                socket->connectToHost(host, 11452);
+                if (socket->waitForConnected(3000))
+                {
+                    ui->stackedWidget->setCurrentIndex(2);
+                    ui->clientLog->append("已连接到" + QHostAddress(host.toIPv4Address()).toString() + "\n");
+                    return;
+                }
+            }
+            else
+            {
+                return;
+            }
+
+
+        }
+        });
+
+    connect(ui->btn_connectTo, &QPushButton::clicked, [=]() {//连接到另一台设备
+        auto selectedDevice = ui->deviceList->selectedItems();
+        auto ip = QHostAddress(selectedDevice[0]->text());
+        auto data = QByteArray("connect");
+        boardcast->writeDatagram(data, ip, 11452);
+
+        });
+
+    connect(server, &QTcpServer::newConnection, [&]() {//接收设备连接
+        socket = server->nextPendingConnection();
+        ui->stackedWidget->setCurrentIndex(1);
         });
 }
 

@@ -6,6 +6,8 @@
 #include <QTcpSocket>
 #include <QTimer>
 #include <QTime>
+#include <QTcpServer>
+#include <QMessageBox>
 #include "ActiveDevice.h"
 
 QT_BEGIN_NAMESPACE
