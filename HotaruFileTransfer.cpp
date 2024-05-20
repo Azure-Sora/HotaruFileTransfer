@@ -23,16 +23,16 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     //ui->deviceList->setItem(0, 0, new QTableWidgetItem("114.514"));
     //ui->deviceList->setItem(0, 1, new QTableWidgetItem("ready"));
 
-    auto deviceTimer = new QTimer;
-    auto boardcastTimer = new QTimer;
+    deviceTimer = new QTimer;
+    boardcastTimer = new QTimer;
 
-    auto boardcastReceiver = new QUdpSocket(this);
-    auto boardcast = new QUdpSocket(this);
-    auto connectHelper = new QUdpSocket(this);
+    boardcastReceiver = new QUdpSocket(this);
+    boardcast = new QUdpSocket(this);
+    connectHelper = new QUdpSocket(this);
 
-    auto server = new QTcpServer(this);
-    auto socket = new QTcpSocket(this);
-    server->listen(QHostAddress::Any, 11452);
+    server = new QTcpServer(this);
+    socket = new QTcpSocket(this);
+    //server->listen(QHostAddress::Any, 11452);
 
     //connect(ui->btn_initService, &QPushButton::clicked, [=]() {//初始化广播
     //    ui->btn_initService->setDisabled(true);
@@ -43,12 +43,17 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(ui->btn_recv, &QPushButton::clicked, [=]() {//初始化接收广播
         ui->btn_recv->setDisabled(true);
+        //
+        server->listen(QHostAddress::Any, 11452);
+        //
         deviceTimer->start(100);
         boardcastReceiver->bind(QHostAddress::Any, 11451, QUdpSocket::ShareAddress);
         });
 
     connect(ui->btn_start, &QPushButton::clicked, [=]() {//初始化发送广播
         boardcastTimer->start(250);
+        //qDebug() << NetworkUtil::getValidAddr();
+        boardcast->bind(NetworkUtil::getValidAddr(), 11451, QAbstractSocket::ShareAddress);
         connectHelper->bind(QHostAddress::Any, 11452, QUdpSocket::ShareAddress);
         ui->btn_start->setDisabled(true);
         });
@@ -58,6 +63,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         //auto time = QTime::currentTime();
         auto data = QByteArray("ready");
         //auto data = QByteArray(time.toString().toLocal8Bit());
+        
         boardcast->writeDatagram(data.data(), QHostAddress::Broadcast, 11451);
         });
 
@@ -133,7 +139,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
         });
 
-    connect(server, &QTcpServer::newConnection, [&]() {//接收设备连接
+    connect(server, &QTcpServer::newConnection, [=]() {//接收设备连接
         socket = server->nextPendingConnection();
         ui->stackedWidget->setCurrentIndex(1);
         });

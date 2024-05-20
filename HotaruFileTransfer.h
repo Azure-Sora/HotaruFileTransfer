@@ -9,6 +9,7 @@
 #include <QTcpServer>
 #include <QMessageBox>
 #include "ActiveDevice.h"
+#include "NetworkUtil.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class HotaruFileTransferClass; };
@@ -25,6 +26,13 @@ public:
     void refreshTable();
 
     QList<ActiveDevice> devices;
+    QTimer* deviceTimer;
+    QTimer* boardcastTimer;
+    QUdpSocket* boardcastReceiver;
+    QUdpSocket* boardcast;
+    QUdpSocket* connectHelper;
+    QTcpServer* server;
+    QTcpSocket* socket;
 
 
 private:
