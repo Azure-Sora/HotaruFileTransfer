@@ -156,7 +156,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
                 {
                     ui->stackedWidget->setCurrentIndex(2);
                     inStream->setDevice(socket);
-                    ui->serverLog->append(createLog("已连接到" + QHostAddress(host.toIPv4Address()).toString() + "\n"));
+                    ui->serverLog->append(createLog("已连接到" + QHostAddress(host.toIPv4Address()).toString()));
                     return;
                 }
             }
@@ -249,36 +249,39 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     
 
     connect(socket, &QTcpSocket::readyRead, [=]() {
-        if (fileSize == 0)
+        while (socket->bytesAvailable())
         {
-            QString fileName;
-            (*inStream) >> fileSize >> fileName;
-            operatingFile.setFileName(fileName);
-            operatingFile.open(QIODevice::WriteOnly);
-            return;
-        }
-        else
-        {
-            auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);
-            /*if (size == 0)
+            if (fileSize == 0)
             {
-                operatingFile.close();
-                return;
-            }*/
-
-            QByteArray data(size, 0);
-            inStream->readRawData(data.data(), size);
-            operatingFile.write(data);
-            bytesCompleted += size;
-
-            if (fileSize == bytesCompleted)
-            {
-                ui->clientLog->append(createLog("已成功接收" + operatingFile.fileName()));
-                fileSize = 0;
-                bytesCompleted = 0;
-                operatingFile.close();
+                QString fileName;
+                (*inStream) >> fileSize >> fileName;
+                operatingFile.setFileName(fileName);
+                operatingFile.open(QIODevice::WriteOnly);
+                continue;
             }
+            else
+            {
+                auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);
+                /*if (size == 0)
+                {
+                    operatingFile.close();
+                    return;
+                }*/
 
+                QByteArray data(size, 0);
+                inStream->readRawData(data.data(), size);
+                operatingFile.write(data);
+                bytesCompleted += size;
+
+                if (fileSize == bytesCompleted)
+                {
+                    ui->clientLog->append(createLog("已成功接收" + operatingFile.fileName()));
+                    fileSize = 0;
+                    bytesCompleted = 0;
+                    operatingFile.close();
+                }
+
+            }
         }
         });
 
@@ -338,7 +341,7 @@ bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
     QFile qfile(file);
     if (!qfile.open(QIODevice::ReadOnly))
     {
-        ui->serverLog->append(createLog("打开文件" + fileName + "失败！\n"));
+        ui->serverLog->append(createLog("打开文件" + fileName + "失败！"));
         return false;
     }
     fileSize = qfile.size();
@@ -370,7 +373,7 @@ void HotaruFileTransfer::sendFiles(QStringList files)
 {
     if (files.length() == 0)
     {
-        ui->serverLog->append(createLog("文件路径为空！\n"));
+        ui->serverLog->append(createLog("文件路径为空！"));
         finishSendingFile();
         return;
     }
@@ -378,7 +381,7 @@ void HotaruFileTransfer::sendFiles(QStringList files)
     {
         if (!QFileInfo(file).isFile())
         {
-            ui->serverLog->append(createLog("输入了错误的文件名！\n"));
+            ui->serverLog->append(createLog("输入了错误的文件名！"));
             finishSendingFile();
             return;
         }
@@ -387,7 +390,7 @@ void HotaruFileTransfer::sendFiles(QStringList files)
     {
         if (sendSingleFile(files[i], QFileInfo(files[i]).fileName()))
         {
-            ui->serverLog->append(createLog("文件已发送[" + QString::number(i + 1) + "/" + QString::number(files.length()) + "]\n"));
+            ui->serverLog->append(createLog("文件已发送[" + QString::number(i + 1) + "/" + QString::number(files.length()) + "]"));
         }
         else
         {
