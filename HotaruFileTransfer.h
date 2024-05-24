@@ -8,6 +8,11 @@
 #include <QTime>
 #include <QTcpServer>
 #include <QMessageBox>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <thread>
+#include <QDateTime>
+#include <QDataStream>
 #include "ActiveDevice.h"
 #include "NetworkUtil.h"
 
@@ -22,8 +27,14 @@ class HotaruFileTransfer : public QMainWindow
 public:
     HotaruFileTransfer(QWidget *parent = nullptr);
     ~HotaruFileTransfer();
+    QString createLog(QString str);
     void deviceTimeout();
     void refreshTable();
+    inline void finishSendingFile();
+    bool sendSingleFile(QString file, QString fileName);
+    void sendFiles(QStringList files);
+    void sendDirectory(QString dir);
+    
 
     QList<ActiveDevice> devices;
     QTimer* deviceTimer;
@@ -33,6 +44,12 @@ public:
     QUdpSocket* connectHelper;
     QTcpServer* server;
     QTcpSocket* socket;
+    QDataStream* outStream;
+    QDataStream* inStream;
+
+    int fileSize = 0;
+    int bytesCompleted = 0;
+    QFile operatingFile;
 
 
 private:

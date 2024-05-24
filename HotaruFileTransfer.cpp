@@ -14,15 +14,21 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     , ui(new Ui::HotaruFileTransferClass())
 {
     ui->setupUi(this);
-    //ui->deviceList->setRowCount(1);
-    //ui->deviceList->insertRow(0);
+
+    /*
+    * 
+    * 软件初始化部分
+    * 
+    */
+    ui->stackedWidget->setCurrentIndex(0);
+
+    //设备表格
     ui->deviceList->setColumnWidth(0, 300);
     ui->deviceList->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->deviceList->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->deviceList->setSelectionMode(QAbstractItemView::SingleSelection);
-    //ui->deviceList->setItem(0, 0, new QTableWidgetItem("114.514"));
-    //ui->deviceList->setItem(0, 1, new QTableWidgetItem("ready"));
 
+    //计时器和套接字
     deviceTimer = new QTimer;
     boardcastTimer = new QTimer;
 
@@ -32,6 +38,14 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     server = new QTcpServer(this);
     socket = new QTcpSocket(this);
+
+    outStream = new QDataStream(socket);
+    inStream = new QDataStream(socket);
+
+    //发送方界面
+    ui->filePathEdit->setPlaceholderText("请输入文件或文件夹路径...");
+
+
     //server->listen(QHostAddress::Any, 11452);
 
     //connect(ui->btn_initService, &QPushButton::clicked, [=]() {//初始化广播
@@ -58,6 +72,29 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         ui->btn_start->setDisabled(true);
         });
 
+    /*
+    * 
+    * 调试用内容
+    * 
+    */
+
+    connect(ui->page_main, &QAction::triggered, [=]() {
+        ui->stackedWidget->setCurrentIndex(0);
+        });
+    connect(ui->page_server, &QAction::triggered, [=]() {
+        ui->stackedWidget->setCurrentIndex(1);
+        });
+    connect(ui->page_client, &QAction::triggered, [=]() {
+        ui->stackedWidget->setCurrentIndex(2);
+        });
+
+
+
+    /*
+    * 
+    * 处理广播设备，连接设备部分
+    * 
+    */
 
     connect(boardcastTimer, &QTimer::timeout, [=]() {//发送广播
         //auto time = QTime::currentTime();
@@ -118,7 +155,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
                 if (socket->waitForConnected(3000))
                 {
                     ui->stackedWidget->setCurrentIndex(2);
-                    ui->clientLog->append("已连接到" + QHostAddress(host.toIPv4Address()).toString() + "\n");
+                    inStream->setDevice(socket);
+                    ui->serverLog->append(createLog("已连接到" + QHostAddress(host.toIPv4Address()).toString() + "\n"));
                     return;
                 }
             }
@@ -141,13 +179,121 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(server, &QTcpServer::newConnection, [=]() {//接收设备连接
         socket = server->nextPendingConnection();
+        outStream->setDevice(socket);
         ui->stackedWidget->setCurrentIndex(1);
         });
+
+    /*
+    * 
+    * 处理发送方功能
+    * 
+    */
+
+    connect(ui->btn_serverChooseFile, &QPushButton::clicked, [=]() {
+        auto files = QFileDialog::getOpenFileNames(this, "选择一个或多个文件", QString(), "所有文件(*.*)");
+        ui->filePathEdit->setText(files.join("|"));
+        });
+    connect(ui->btn_serverChooseDir, &QPushButton::clicked, [=]() {
+        QString dirPth = QFileDialog::getExistingDirectory(this, "选择文件夹");
+        ui->filePathEdit->setText(dirPth);
+        });
+
+    connect(ui->btn_serverDisconnect, &QPushButton::clicked, [=]() {
+        socket->disconnectFromHost();
+        QMessageBox::information(this, "提示", "将在文件传输完成后断开连接");
+        ui->stackedWidget->setCurrentIndex(0);
+        });
+    connect(socket, &QTcpSocket::disconnected, [=]() {
+        QMessageBox::information(this, "提示", "已断开连接");
+        ui->stackedWidget->setCurrentIndex(0);
+        });
+
+    connect(ui->btn_serverSendFile, &QPushButton::clicked, [=]() {
+        ui->btn_serverSendFile->setDisabled(true);
+        ui->btn_serverDisconnect->setDisabled(true);
+        ui->filePathEdit->setDisabled(true);
+        ui->btn_serverChooseDir->setDisabled(true);
+        ui->btn_serverChooseFile->setDisabled(true);
+
+        auto rawStr = ui->filePathEdit->toPlainText();
+        QFileInfo fileInfo(rawStr);
+        if (fileInfo.isDir())
+        {
+            std::thread sender(&HotaruFileTransfer::sendDirectory, this, rawStr);
+            sender.detach();
+
+            //ui->serverLog->append(createLog("文件夹" + rawStr));
+            return;
+        }
+        else
+        {
+            auto filesList = rawStr.split("|");
+            /*std::thread sender(&HotaruFileTransfer::sendFiles, this, filesList);
+            sender.detach();*/
+            sendFiles(filesList);
+
+            /*for (auto& fl : filesList)
+            {
+                ui->serverLog->append(createLog("文件" + fl));
+            }*/
+            return;
+        }
+        
+        });
+
+    /*
+    * 
+    * 处理接收方功能
+    * 
+    */
+    
+
+    connect(socket, &QTcpSocket::readyRead, [=]() {
+        if (fileSize == 0)
+        {
+            QString fileName;
+            (*inStream) >> fileSize >> fileName;
+            operatingFile.setFileName(fileName);
+            operatingFile.open(QIODevice::WriteOnly);
+            return;
+        }
+        else
+        {
+            auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);
+            /*if (size == 0)
+            {
+                operatingFile.close();
+                return;
+            }*/
+
+            QByteArray data(size, 0);
+            inStream->readRawData(data.data(), size);
+            operatingFile.write(data);
+            bytesCompleted += size;
+
+            if (fileSize == bytesCompleted)
+            {
+                ui->clientLog->append(createLog("已成功接收" + operatingFile.fileName()));
+                fileSize = 0;
+                bytesCompleted = 0;
+                operatingFile.close();
+            }
+
+        }
+        });
+
 }
 
 HotaruFileTransfer::~HotaruFileTransfer()
 {
     delete ui;
+}
+
+QString HotaruFileTransfer::createLog(QString str)
+{
+    auto time = QDateTime::currentDateTime();
+    auto timeStr = time.toString("yyyy-MM-dd hh:mm:ss");
+    return "[" + timeStr + "] " + str;
 }
 
 void HotaruFileTransfer::deviceTimeout()
@@ -174,5 +320,86 @@ void HotaruFileTransfer::refreshTable()
         ui->deviceList->setItem(i, 0, new QTableWidgetItem(devices[i].IPAddr.toString()));
         ui->deviceList->setItem(i, 1, new QTableWidgetItem(devices[i].status));
     }
+}
+
+void HotaruFileTransfer::finishSendingFile()
+{
+    ui->btn_serverSendFile->setEnabled(true);
+    ui->btn_serverDisconnect->setEnabled(true);
+    ui->filePathEdit->setEnabled(true);
+    ui->btn_serverChooseDir->setEnabled(true);;
+    ui->btn_serverChooseFile->setEnabled(true);;
+}
+
+bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
+{
+    static constexpr int fragSize = 1024;//以1024B作文件块大小
+
+    QFile qfile(file);
+    if (!qfile.open(QIODevice::ReadOnly))
+    {
+        ui->serverLog->append(createLog("打开文件" + fileName + "失败！\n"));
+        return false;
+    }
+    fileSize = qfile.size();
+    int sentSize = 0;
+
+    
+    (*outStream) << fileSize << fileName;
+    socket->waitForBytesWritten();
+
+    while (!qfile.atEnd())
+    {
+        auto data = qfile.read(fragSize);
+        outStream->writeRawData(data.constData(), data.size());
+        bytesCompleted += data.size();
+        if (bytesCompleted % 10240 == 0) QApplication::processEvents();
+        socket->waitForBytesWritten();
+    }
+    
+    qfile.close();
+
+    fileSize = 0;
+    bytesCompleted = 0;
+
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    return true;
+}
+
+void HotaruFileTransfer::sendFiles(QStringList files)
+{
+    if (files.length() == 0)
+    {
+        ui->serverLog->append(createLog("文件路径为空！\n"));
+        finishSendingFile();
+        return;
+    }
+    for (auto& file : files)
+    {
+        if (!QFileInfo(file).isFile())
+        {
+            ui->serverLog->append(createLog("输入了错误的文件名！\n"));
+            finishSendingFile();
+            return;
+        }
+    }
+    for (int i = 0; i < files.length(); ++i)
+    {
+        if (sendSingleFile(files[i], QFileInfo(files[i]).fileName()))
+        {
+            ui->serverLog->append(createLog("文件已发送[" + QString::number(i + 1) + "/" + QString::number(files.length()) + "]\n"));
+        }
+        else
+        {
+            ui->serverLog->append(createLog("文件发送失败！"));
+        }
+    }
+    //finishSendingFile();
+    return;
+}
+
+void HotaruFileTransfer::sendDirectory(QString dir)
+{
+    return;
 }
 
