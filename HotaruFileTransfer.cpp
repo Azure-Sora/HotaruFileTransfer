@@ -272,10 +272,12 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
                 inStream->readRawData(data.data(), size);
                 operatingFile.write(data);
                 bytesCompleted += size;
+                if (bytesCompleted % 102400 == 0) updateProgressBar();
 
                 if (fileSize == bytesCompleted)
                 {
                     ui->clientLog->append(createLog("已成功接收" + operatingFile.fileName()));
+                    updateProgressBar();
                     fileSize = 0;
                     bytesCompleted = 0;
                     operatingFile.close();
@@ -325,6 +327,29 @@ void HotaruFileTransfer::refreshTable()
     }
 }
 
+void HotaruFileTransfer::updateProgressBar()
+{
+    if (ui->stackedWidget->currentIndex() == 1)//server
+    {
+        if (fileSize == 0)
+        {
+            ui->serverProgressBar->setValue(0);
+            return;
+        }
+        ui->serverProgressBar->setValue(static_cast<int>((static_cast<double>(bytesCompleted) / static_cast<double>(fileSize)) * 100));
+        //ui->serverLog->append(QString::number((bytesCompleted / fileSize) * 100.0));
+    }
+    if (ui->stackedWidget->currentIndex() == 2)//client
+    {
+        if (fileSize == 0)
+        {
+            ui->clientProgressBar->setValue(0);
+            return;
+        }
+        ui->clientProgressBar->setValue(static_cast<int>((static_cast<double>(bytesCompleted) / static_cast<double>(fileSize)) * 100));
+    }
+}
+
 void HotaruFileTransfer::finishSendingFile()
 {
     ui->btn_serverSendFile->setEnabled(true);
@@ -356,10 +381,15 @@ bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
         auto data = qfile.read(fragSize);
         outStream->writeRawData(data.constData(), data.size());
         bytesCompleted += data.size();
-        if (bytesCompleted % 10240 == 0) QApplication::processEvents();
+        if (bytesCompleted % 102400 == 0)
+        {
+            QApplication::processEvents();
+            updateProgressBar();
+        }
         socket->waitForBytesWritten();
     }
-    
+    updateProgressBar();
+
     qfile.close();
 
     fileSize = 0;
@@ -397,7 +427,7 @@ void HotaruFileTransfer::sendFiles(QStringList files)
             ui->serverLog->append(createLog("文件发送失败！"));
         }
     }
-    //finishSendingFile();
+    finishSendingFile();
     return;
 }
 

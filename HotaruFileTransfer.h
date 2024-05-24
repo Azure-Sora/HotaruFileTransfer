@@ -30,6 +30,7 @@ public:
     QString createLog(QString str);
     void deviceTimeout();
     void refreshTable();
+    void updateProgressBar();
     inline void finishSendingFile();
     bool sendSingleFile(QString file, QString fileName);
     void sendFiles(QStringList files);
