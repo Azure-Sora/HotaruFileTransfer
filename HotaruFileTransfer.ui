@@ -18,7 +18,7 @@
     <item>
      <widget class="QStackedWidget" name="stackedWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="mainPage">
        <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -216,6 +216,16 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <widget class="QWidget" name="widget_8" native="true">
              <layout class="QVBoxLayout" name="verticalLayout_7">
               <item>
+               <widget class="QLabel" name="label">
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;正在等待接收文件...&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item>
                <widget class="QPushButton" name="btn_clientDisconnect">
                 <property name="text">
                  <string>断开连接</string>
@@ -252,11 +262,13 @@ li.checked::marker { content: &quot;\2612&quot;; }
    </property>
    <widget class="QMenu" name="menu">
     <property name="title">
-     <string>页面</string>
+     <string>测试</string>
     </property>
     <addaction name="page_main"/>
     <addaction name="page_server"/>
     <addaction name="page_client"/>
+    <addaction name="separator"/>
+    <addaction name="act_debugMode"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -282,6 +294,17 @@ li.checked::marker { content: &quot;\2612&quot;; }
   <action name="page_client">
    <property name="text">
     <string>client</string>
+   </property>
+  </action>
+  <action name="act_debugMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>debugMode</string>
    </property>
   </action>
  </widget>

@@ -34,8 +34,10 @@ public:
     inline void finishSendingFile();
     bool sendSingleFile(QString file, QString fileName);
     void sendFiles(QStringList files);
+    QFileInfoList getDirFiles(QString dirPath);
     void sendDirectory(QString dir);
     
+    bool isDebugMode();
 
     QList<ActiveDevice> devices;
     QTimer* deviceTimer;

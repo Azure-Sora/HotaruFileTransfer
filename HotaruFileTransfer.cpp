@@ -120,7 +120,10 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
             //ui->deviceList->
             //!deviceExists(QHostAddress(host.toIPv4Address()))
-            
+            if (!isDebugMode() && host.isEqual(NetworkUtil::getValidAddr()))
+            {
+                return;
+            }
             
             if (!devices.contains(QHostAddress(host.toIPv4Address())))
             {
@@ -200,7 +203,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(ui->btn_serverDisconnect, &QPushButton::clicked, [=]() {
         socket->disconnectFromHost();
-        QMessageBox::information(this, "提示", "将在文件传输完成后断开连接");
+        QMessageBox::information(this, "提示", "即将断开连接");
         ui->stackedWidget->setCurrentIndex(0);
         });
     connect(socket, &QTcpSocket::disconnected, [=]() {
@@ -216,11 +219,10 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         ui->btn_serverChooseFile->setDisabled(true);
 
         auto rawStr = ui->filePathEdit->toPlainText();
-        QFileInfo fileInfo(rawStr);
+        QFileInfo fileInfo(rawStr);//判断是文件还是文件夹
         if (fileInfo.isDir())
         {
-            std::thread sender(&HotaruFileTransfer::sendDirectory, this, rawStr);
-            sender.detach();
+            sendDirectory(rawStr);
 
             //ui->serverLog->append(createLog("文件夹" + rawStr));
             return;
@@ -251,23 +253,27 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     connect(socket, &QTcpSocket::readyRead, [=]() {
         while (socket->bytesAvailable())
         {
-            if (fileSize == 0)
+            if (fileSize == 0)//不在接受某一文件中
             {
                 QString fileName;
                 (*inStream) >> fileSize >> fileName;
                 operatingFile.setFileName(fileName);
+                if (fileName.contains('/'))//存在目录结构，进行处理，创建不存在的目录
+                {
+                    auto dirName = QFileInfo(operatingFile).absolutePath();
+                    QDir dir(dirName);
+                    if (!dir.exists())
+                    {
+                        dir.mkpath(dirName);
+                    }
+                }
+                
                 operatingFile.open(QIODevice::WriteOnly);
                 continue;
             }
             else
             {
-                auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);
-                /*if (size == 0)
-                {
-                    operatingFile.close();
-                    return;
-                }*/
-
+                auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);//只接受最大不超过这个文件剩下量的数据
                 QByteArray data(size, 0);
                 inStream->readRawData(data.data(), size);
                 operatingFile.write(data);
@@ -276,7 +282,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
                 if (fileSize == bytesCompleted)
                 {
-                    ui->clientLog->append(createLog("已成功接收" + operatingFile.fileName()));
+                    ui->clientLog->append(createLog("已成功接收 " + operatingFile.fileName()));
                     updateProgressBar();
                     fileSize = 0;
                     bytesCompleted = 0;
@@ -285,6 +291,12 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
             }
         }
+        });
+
+    connect(ui->btn_clientDisconnect, &QPushButton::clicked, [=]() {
+        socket->disconnectFromHost();
+        QMessageBox::information(this, "提示", "即将断开连接");
+        ui->stackedWidget->setCurrentIndex(0);
         });
 
 }
@@ -431,8 +443,48 @@ void HotaruFileTransfer::sendFiles(QStringList files)
     return;
 }
 
+QFileInfoList HotaruFileTransfer::getDirFiles(QString dirPath)
+{
+    QDir dir(dirPath);
+    auto fileList = dir.entryInfoList(QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+    auto folderList = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (auto& folder : folderList)
+    {
+        auto childFileList = getDirFiles(folder.absoluteFilePath());
+        fileList.append(childFileList);
+    }
+
+    return fileList;
+}
+
 void HotaruFileTransfer::sendDirectory(QString dir)
 {
+    dir.replace('\\','/');
+    auto files = getDirFiles(dir);
+    int counter = 0;
+    for (auto& file : files)
+    {
+        auto relativeName = file.absoluteFilePath().replace(dir, dir.split("/").last());
+        //ui->serverLog->append(file.absoluteFilePath() + "   " + relativeName);
+        
+        if (sendSingleFile(file.absoluteFilePath(), relativeName))
+        {
+            ++counter;
+            ui->serverLog->append(createLog("文件已发送[" + QString::number(counter) + "/" + QString::number(files.length()) + "]"));
+        }
+        else
+        {
+            ui->serverLog->append(createLog("文件发送失败！"));
+        }
+    }
+
+    finishSendingFile();
     return;
+}
+
+bool HotaruFileTransfer::isDebugMode()
+{
+    return ui->act_debugMode->isChecked();
 }
 
