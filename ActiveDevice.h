@@ -10,7 +10,7 @@ class ActiveDevice  : public QObject
 
 public:
 	ActiveDevice(QObject *parent);
-	ActiveDevice(QHostAddress addr, QString status);
+	ActiveDevice(QHostAddress addr, QString deviceName, QString status);
 	ActiveDevice(const ActiveDevice& other);
 	ActiveDevice& operator=(const ActiveDevice& other);
 	bool operator==(const ActiveDevice& other) const;
@@ -19,5 +19,6 @@ public:
 
 	int lifeTime = 10;
 	QHostAddress IPAddr;
+	QString deviceName;
 	QString status;
 };

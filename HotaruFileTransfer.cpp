@@ -23,7 +23,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     ui->stackedWidget->setCurrentIndex(0);
 
     //设备表格
-    ui->deviceList->setColumnWidth(0, 300);
+    ui->deviceList->setColumnWidth(0, 150);
+    ui->deviceList->setColumnWidth(1, 150);
     ui->deviceList->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->deviceList->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->deviceList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -48,12 +49,19 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     //server->listen(QHostAddress::Any, 11452);
 
-    //connect(ui->btn_initService, &QPushButton::clicked, [=]() {//初始化广播
-    //    ui->btn_initService->setDisabled(true);
-    //    boardcastTimer->start(250);
-    //    deviceTimer->start(100);
-    //    boardcastReceiver->bind(QHostAddress::Any, 11451, QUdpSocket::ShareAddress);
-    //    });
+    connect(ui->btn_initService, &QPushButton::clicked, [=]() {//初始化广播
+        ui->btn_initService->setDisabled(true);
+        ui->deviceNameEdit->setDisabled(true);
+
+        server->listen(QHostAddress::Any, 11452);
+        deviceTimer->start(100);
+        boardcastReceiver->bind(QHostAddress::Any, 11451, QUdpSocket::ShareAddress);
+        
+        boardcast->bind(NetworkUtil::getValidAddr(), 11451, QAbstractSocket::ShareAddress);
+        connectHelper->bind(QHostAddress::Any, 11452, QUdpSocket::ShareAddress);
+        boardcastTimer->start(250);
+        
+        });
 
     connect(ui->btn_recv, &QPushButton::clicked, [=]() {//初始化接收广播
         ui->btn_recv->setDisabled(true);
@@ -98,7 +106,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(boardcastTimer, &QTimer::timeout, [=]() {//发送广播
         //auto time = QTime::currentTime();
-        auto data = QByteArray("ready");
+        auto data = (ui->deviceNameEdit->text() + "@_@ready").toLocal8Bit();
         //auto data = QByteArray(time.toString().toLocal8Bit());
         
         boardcast->writeDatagram(data.data(), QHostAddress::Broadcast, 11451);
@@ -127,7 +135,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             
             if (!devices.contains(QHostAddress(host.toIPv4Address())))
             {
-                auto newdevice = ActiveDevice(QHostAddress(host.toIPv4Address()), QString(data));
+                auto infos = QString(data).split("@_@");
+                auto newdevice = ActiveDevice(QHostAddress(host.toIPv4Address()), infos[0], infos[1]);
                 devices.append(newdevice);
                 refreshTable();
             }
@@ -158,8 +167,9 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
                 if (socket->waitForConnected(3000))
                 {
                     ui->stackedWidget->setCurrentIndex(2);
+                    updateProgressBar();
                     inStream->setDevice(socket);
-                    ui->serverLog->append(createLog("已连接到" + QHostAddress(host.toIPv4Address()).toString()));
+                    ui->clientLog->append(createLog("已连接到" + QHostAddress(host.toIPv4Address()).toString()));
                     return;
                 }
             }
@@ -184,6 +194,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         socket = server->nextPendingConnection();
         outStream->setDevice(socket);
         ui->stackedWidget->setCurrentIndex(1);
+        ui->serverLog->append(createLog("已连接到" + QHostAddress(socket->peerAddress().toIPv4Address()).toString()));
+        updateProgressBar();
         });
 
     /*
@@ -248,7 +260,6 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     * 处理接收方功能
     * 
     */
-    
 
     connect(socket, &QTcpSocket::readyRead, [=]() {
         while (socket->bytesAvailable())
@@ -335,7 +346,8 @@ void HotaruFileTransfer::refreshTable()
     {
         ui->deviceList->insertRow(i);
         ui->deviceList->setItem(i, 0, new QTableWidgetItem(devices[i].IPAddr.toString()));
-        ui->deviceList->setItem(i, 1, new QTableWidgetItem(devices[i].status));
+        ui->deviceList->setItem(i, 1, new QTableWidgetItem(devices[i].deviceName));
+        ui->deviceList->setItem(i, 2, new QTableWidgetItem(devices[i].status));
     }
 }
 

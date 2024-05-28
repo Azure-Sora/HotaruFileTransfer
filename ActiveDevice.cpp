@@ -4,25 +4,15 @@ ActiveDevice::ActiveDevice(QObject *parent)
 	: QObject(parent)
 {}
 
-ActiveDevice::ActiveDevice(QHostAddress addr, QString status)
+ActiveDevice::ActiveDevice(QHostAddress addr, QString deviceName, QString status)
 	:
 	IPAddr(addr),
-	status(status)
+	status(status),
+	deviceName(deviceName)
 {
-	//QTimer *countDown;
-	//connect(countDown, &QTimer::timeout, [&]() {
-	//	this->lifeTime -= 1;
-	//	//this->status = QString::number(lifeTime);
-	//	if (this->lifeTime <= 0)
-	//	{
-	//		countDown->stop();
-	//		delete countDown;
-	//	}
-	//	});
-	//countDown->start(100);
 }
 
-ActiveDevice::ActiveDevice(const ActiveDevice& other) : IPAddr(other.IPAddr), status(other.status)
+ActiveDevice::ActiveDevice(const ActiveDevice& other) : IPAddr(other.IPAddr), status(other.status), deviceName(other.deviceName)
 {
 }
 
@@ -30,6 +20,7 @@ ActiveDevice& ActiveDevice::operator=(const ActiveDevice& other)
 {
 	this->IPAddr = other.IPAddr;
 	this->status = other.status;
+	this->deviceName = other.deviceName;
 	return *this;
 }
 
