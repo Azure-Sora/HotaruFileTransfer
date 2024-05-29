@@ -30,8 +30,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     ui->deviceList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     //计时器和套接字
-    deviceTimer = new QTimer;
-    boardcastTimer = new QTimer;
+    deviceTimer = new QTimer(this);
+    boardcastTimer = new QTimer(this);
 
     boardcastReceiver = new QUdpSocket(this);
     boardcast = new QUdpSocket(this);
@@ -95,6 +95,24 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     connect(ui->page_client, &QAction::triggered, [=]() {
         ui->stackedWidget->setCurrentIndex(2);
         });
+    connect(ui->act_debugMode, &QAction::triggered, [=](bool checked) {
+        if (checked)
+        {
+            ui->page_main->setVisible(true);
+            ui->page_server->setVisible(true);
+            ui->page_client->setVisible(true);
+            ui->btn_start->setVisible(true);
+            ui->btn_recv->setVisible(true);
+        }
+        else
+        {
+            ui->page_main->setVisible(false);
+            ui->page_server->setVisible(false);
+            ui->page_client->setVisible(false);
+            ui->btn_start->setVisible(false);
+            ui->btn_recv->setVisible(false);
+        }
+        });
 
 
 
@@ -104,7 +122,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     * 
     */
 
-    connect(boardcastTimer, &QTimer::timeout, [=]() {//发送广播
+    connect(boardcastTimer, &QTimer::timeout, [=]() {//发送设备发现广播
         //auto time = QTime::currentTime();
         auto data = (ui->deviceNameEdit->text() + "@_@ready").toLocal8Bit();
         //auto data = QByteArray(time.toString().toLocal8Bit());
@@ -117,7 +135,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         //refreshTable();
         });
 
-    connect(boardcastReceiver, &QUdpSocket::readyRead, [=]() {//接收广播
+    connect(boardcastReceiver, &QUdpSocket::readyRead, [=]() {//接收设备发现广播
         while (boardcastReceiver->hasPendingDatagrams())
         {
             QByteArray data;
@@ -148,7 +166,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
         });
 
-    connect(connectHelper, &QUdpSocket::readyRead, [=]() {
+    connect(connectHelper, &QUdpSocket::readyRead, [=]() {//接收设备连接请求
         QByteArray data;
         data.resize(connectHelper->pendingDatagramSize());
         QHostAddress host;
@@ -198,22 +216,23 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         updateProgressBar();
         });
 
+
     /*
     * 
     * 处理发送方功能
     * 
     */
 
-    connect(ui->btn_serverChooseFile, &QPushButton::clicked, [=]() {
+    connect(ui->btn_serverChooseFile, &QPushButton::clicked, [=]() {//选择文件按钮
         auto files = QFileDialog::getOpenFileNames(this, "选择一个或多个文件", QString(), "所有文件(*.*)");
         ui->filePathEdit->setText(files.join("|"));
         });
-    connect(ui->btn_serverChooseDir, &QPushButton::clicked, [=]() {
+    connect(ui->btn_serverChooseDir, &QPushButton::clicked, [=]() {//选择文件夹按钮
         QString dirPth = QFileDialog::getExistingDirectory(this, "选择文件夹");
         ui->filePathEdit->setText(dirPth);
         });
 
-    connect(ui->btn_serverDisconnect, &QPushButton::clicked, [=]() {
+    connect(ui->btn_serverDisconnect, &QPushButton::clicked, [=]() {//断开连接相关
         socket->disconnectFromHost();
         QMessageBox::information(this, "提示", "即将断开连接");
         ui->stackedWidget->setCurrentIndex(0);
@@ -223,7 +242,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         ui->stackedWidget->setCurrentIndex(0);
         });
 
-    connect(ui->btn_serverSendFile, &QPushButton::clicked, [=]() {
+    connect(ui->btn_serverSendFile, &QPushButton::clicked, [=]() {//发送文件
         ui->btn_serverSendFile->setDisabled(true);
         ui->btn_serverDisconnect->setDisabled(true);
         ui->filePathEdit->setDisabled(true);
@@ -261,10 +280,10 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     * 
     */
 
-    connect(socket, &QTcpSocket::readyRead, [=]() {
+    connect(socket, &QTcpSocket::readyRead, [=]() {//接收文件
         while (socket->bytesAvailable())
         {
-            if (fileSize == 0)//不在接受某一文件中
+            if (fileSize == 0)//不在接收某一文件中
             {
                 QString fileName;
                 (*inStream) >> fileSize >> fileName;
@@ -280,18 +299,19 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
                 }
                 
                 operatingFile.open(QIODevice::WriteOnly);
+                ui->clientProgressBar->setFormat("正在接收 " + fileName + " %p%");
                 continue;
             }
             else
             {
-                auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);//只接受最大不超过这个文件剩下量的数据
+                auto size = qMin(socket->bytesAvailable(), fileSize - bytesCompleted);//只接收最大不超过这个文件剩下量的数据
                 QByteArray data(size, 0);
                 inStream->readRawData(data.data(), size);
                 operatingFile.write(data);
                 bytesCompleted += size;
                 if (bytesCompleted % 102400 == 0) updateProgressBar();
 
-                if (fileSize == bytesCompleted)
+                if (fileSize == bytesCompleted)//完成接收一个文件
                 {
                     ui->clientLog->append(createLog("已成功接收 " + operatingFile.fileName()));
                     updateProgressBar();
@@ -304,6 +324,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         }
         });
 
+    ui->btn_clientDisconnect->setVisible(false);//这个功能有bug，断开后服务端不知道断开了，修不好
     connect(ui->btn_clientDisconnect, &QPushButton::clicked, [=]() {
         socket->disconnectFromHost();
         QMessageBox::information(this, "提示", "即将断开连接");
@@ -358,6 +379,7 @@ void HotaruFileTransfer::updateProgressBar()
         if (fileSize == 0)
         {
             ui->serverProgressBar->setValue(0);
+            ui->serverProgressBar->setFormat("");
             return;
         }
         ui->serverProgressBar->setValue(static_cast<int>((static_cast<double>(bytesCompleted) / static_cast<double>(fileSize)) * 100));
@@ -368,6 +390,7 @@ void HotaruFileTransfer::updateProgressBar()
         if (fileSize == 0)
         {
             ui->clientProgressBar->setValue(0);
+            ui->clientProgressBar->setFormat("");
             return;
         }
         ui->clientProgressBar->setValue(static_cast<int>((static_cast<double>(bytesCompleted) / static_cast<double>(fileSize)) * 100));
@@ -398,6 +421,7 @@ bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
 
     
     (*outStream) << fileSize << fileName;
+    ui->serverProgressBar->setFormat("正在发送 " + fileName + " %p%");
     socket->waitForBytesWritten();
 
     while (!qfile.atEnd())

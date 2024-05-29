@@ -272,6 +272,18 @@ li.checked::marker { content: &quot;\2612&quot;; }
              <property name="value">
               <number>99</number>
              </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="invertedAppearance">
+              <bool>false</bool>
+             </property>
+             <property name="textDirection">
+              <enum>QProgressBar::TopToBottom</enum>
+             </property>
             </widget>
            </item>
           </layout>
@@ -325,6 +337,9 @@ li.checked::marker { content: &quot;\2612&quot;; }
           <property name="value">
            <number>24</number>
           </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
          </widget>
         </item>
        </layout>
@@ -339,7 +354,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <x>0</x>
      <y>0</y>
      <width>876</width>
-     <height>24</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu">
