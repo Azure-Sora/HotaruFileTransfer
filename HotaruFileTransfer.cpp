@@ -124,7 +124,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(boardcastTimer, &QTimer::timeout, [=]() {//发送设备发现广播
         //auto time = QTime::currentTime();
-        auto data = (ui->deviceNameEdit->text() + "@_@ready").toLocal8Bit();
+        auto status = (ui->stackedWidget->currentIndex() == 0) ? "ready" : "connected";
+        auto data = (ui->deviceNameEdit->text() + "@_@" + status).toLocal8Bit();
         //auto data = QByteArray(time.toString().toLocal8Bit());
         
         boardcast->writeDatagram(data.data(), QHostAddress::Broadcast, 11451);
@@ -150,7 +151,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             {
                 return;
             }
-            
+
             if (!devices.contains(QHostAddress(host.toIPv4Address())))
             {
                 auto infos = QString(data).split("@_@");
@@ -160,7 +161,14 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             }
             else
             {
-                devices[devices.indexOf(QHostAddress(host.toIPv4Address()))].lifeTime = 10;
+                auto infos = QString(data).split("@_@");
+                auto& dvinfo = devices[devices.indexOf(QHostAddress(host.toIPv4Address()))];
+                if (dvinfo.status != infos[1])
+                {
+                    dvinfo.status = QString(infos[1]);
+                    refreshTable();
+                }
+                dvinfo.lifeTime = 10;
             }
         }
 
@@ -202,6 +210,11 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     connect(ui->btn_connectTo, &QPushButton::clicked, [=]() {//连接到另一台设备
         auto selectedDevice = ui->deviceList->selectedItems();
+        if (selectedDevice[2]->text() == "已连接到其他设备")
+        {
+            QMessageBox::information(this, "提示", "该设备已与其他设备连接");
+            return;
+        }
         auto ip = QHostAddress(selectedDevice[0]->text());
         auto data = QByteArray("connect");
         boardcast->writeDatagram(data, ip, 11452);
@@ -368,7 +381,16 @@ void HotaruFileTransfer::refreshTable()
         ui->deviceList->insertRow(i);
         ui->deviceList->setItem(i, 0, new QTableWidgetItem(devices[i].IPAddr.toString()));
         ui->deviceList->setItem(i, 1, new QTableWidgetItem(devices[i].deviceName));
-        ui->deviceList->setItem(i, 2, new QTableWidgetItem(devices[i].status));
+        QString statusStr;
+        if (devices[i].status == "ready")
+        {
+            statusStr = "可连接";
+        }
+        if (devices[i].status == "connected")
+        {
+            statusStr = "已连接到其他设备";
+        }
+        ui->deviceList->setItem(i, 2, new QTableWidgetItem(statusStr));
     }
 }
 
