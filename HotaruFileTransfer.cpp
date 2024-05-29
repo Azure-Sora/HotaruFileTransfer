@@ -20,6 +20,8 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     * 软件初始化部分
     * 
     */
+    setWindowIcon(QIcon(":/HotaruFileTransfer/assets/icon.jpg"));
+
     ui->stackedWidget->setCurrentIndex(0);
 
     //设备表格
