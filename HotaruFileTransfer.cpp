@@ -48,6 +48,11 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     //发送方界面
     ui->filePathEdit->setPlaceholderText("请输入文件或文件夹路径...");
 
+    //选中设备才能按连接
+    ui->btn_connectTo->setEnabled(false);
+    connect(ui->deviceList, &QTableWidget::cellClicked, [=]() {
+        ui->btn_connectTo->setEnabled(true);
+        });
 
     //server->listen(QHostAddress::Any, 11452);
 
@@ -115,7 +120,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             ui->btn_recv->setVisible(false);
         }
         });
-
+    ui->act_debugMode->trigger();
 
 
     /*
@@ -378,6 +383,7 @@ void HotaruFileTransfer::refreshTable()
 {
     ui->deviceList->clearContents();
     ui->deviceList->setRowCount(0);
+    ui->btn_connectTo->setDisabled(true);
     for (int i = 0; i < devices.size(); i++)
     {
         ui->deviceList->insertRow(i);
