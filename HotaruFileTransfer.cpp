@@ -132,7 +132,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     connect(boardcastTimer, &QTimer::timeout, [=]() {//发送设备发现广播
         //auto time = QTime::currentTime();
         auto status = (ui->stackedWidget->currentIndex() == 0) ? "ready" : "connected";
-        auto data = (ui->deviceNameEdit->text() + "@_@" + status).toLocal8Bit();
+        auto data = (ui->deviceNameEdit->text() + "@_@" + status).toUtf8();
         //auto data = QByteArray(time.toString().toLocal8Bit());
         
         boardcast->writeDatagram(data.data(), QHostAddress::Broadcast, 11451);
@@ -161,14 +161,16 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
             if (!devices.contains(QHostAddress(host.toIPv4Address())))
             {
-                auto infos = QString(data).split("@_@");
+                auto infos = QString::fromUtf8(data).split("@_@");
+                //auto infos = QString(data).split("@_@");
                 auto newdevice = ActiveDevice(QHostAddress(host.toIPv4Address()), infos[0], infos[1]);
                 devices.append(newdevice);
                 refreshTable();
             }
             else
             {
-                auto infos = QString(data).split("@_@");
+                auto infos = QString::fromUtf8(data).split("@_@");
+                //auto infos = QString(data).split("@_@");
                 auto& dvinfo = devices[devices.indexOf(QHostAddress(host.toIPv4Address()))];
                 if (dvinfo.status != infos[1])
                 {
@@ -334,9 +336,9 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
                 if (fileSize == bytesCompleted)//完成接收一个文件
                 {
                     ui->clientLog->append(createLog("已成功接收 " + operatingFile.fileName()));
-                    updateProgressBar();
                     fileSize = 0;
                     bytesCompleted = 0;
+                    updateProgressBar();
                     operatingFile.close();
                 }
 
@@ -447,9 +449,7 @@ bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
         return false;
     }
     fileSize = qfile.size();
-    int sentSize = 0;
-
-    
+ 
     (*outStream) << fileSize << fileName;
     ui->serverProgressBar->setFormat("正在发送 " + fileName + " %p%");
     socket->waitForBytesWritten();
@@ -466,12 +466,13 @@ bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
         }
         socket->waitForBytesWritten();
     }
-    updateProgressBar();
-
+    
     qfile.close();
 
     fileSize = 0;
     bytesCompleted = 0;
+
+    updateProgressBar();
 
     //std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return true;
