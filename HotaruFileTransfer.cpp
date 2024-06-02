@@ -130,17 +130,15 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     */
 
     connect(boardcastTimer, &QTimer::timeout, [=]() {//发送设备发现广播
-        //auto time = QTime::currentTime();
+        //构造设备名与状态
         auto status = (ui->stackedWidget->currentIndex() == 0) ? "ready" : "connected";
         auto data = (ui->deviceNameEdit->text() + "@_@" + status).toUtf8();
-        //auto data = QByteArray(time.toString().toLocal8Bit());
         
         boardcast->writeDatagram(data.data(), QHostAddress::Broadcast, 11451);
         });
 
     connect(deviceTimer, &QTimer::timeout, [=]() {
         deviceTimeout();
-        //refreshTable();
         });
 
     connect(boardcastReceiver, &QUdpSocket::readyRead, [=]() {//接收设备发现广播
@@ -152,27 +150,24 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
             //quint16 port;
             boardcastReceiver->readDatagram(data.data(), data.size(), &host);
 
-            //ui->deviceList->
-            //!deviceExists(QHostAddress(host.toIPv4Address()))
-            if (!isDebugMode() && host.isEqual(NetworkUtil::getValidAddr()))
+            
+            if (!isDebugMode() && host.isEqual(NetworkUtil::getValidAddr()))//跳过自己
             {
                 return;
             }
 
-            if (!devices.contains(QHostAddress(host.toIPv4Address())))
+            if (!devices.contains(QHostAddress(host.toIPv4Address())))//新设备
             {
                 auto infos = QString::fromUtf8(data).split("@_@");
-                //auto infos = QString(data).split("@_@");
                 auto newdevice = ActiveDevice(QHostAddress(host.toIPv4Address()), infos[0], infos[1]);
                 devices.append(newdevice);
                 refreshTable();
             }
-            else
+            else//牢设备
             {
                 auto infos = QString::fromUtf8(data).split("@_@");
-                //auto infos = QString(data).split("@_@");
                 auto& dvinfo = devices[devices.indexOf(QHostAddress(host.toIPv4Address()))];
-                if (dvinfo.status != infos[1])
+                if (dvinfo.status != infos[1])//更新状态
                 {
                     dvinfo.status = QString(infos[1]);
                     refreshTable();
@@ -250,7 +245,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         ui->filePathEdit->setText(files.join("|"));
         });
     connect(ui->btn_serverChooseDir, &QPushButton::clicked, [=]() {//选择文件夹按钮
-        QString dirPth = QFileDialog::getExistingDirectory(this, "选择文件夹");
+        auto dirPth = QFileDialog::getExistingDirectory(this, "选择文件夹");
         ui->filePathEdit->setText(dirPth);
         });
 
@@ -276,21 +271,12 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
         if (fileInfo.isDir())
         {
             sendDirectory(rawStr);
-
-            //ui->serverLog->append(createLog("文件夹" + rawStr));
             return;
         }
         else
         {
             auto filesList = rawStr.split("|");
-            /*std::thread sender(&HotaruFileTransfer::sendFiles, this, filesList);
-            sender.detach();*/
             sendFiles(filesList);
-
-            /*for (auto& fl : filesList)
-            {
-                ui->serverLog->append(createLog("文件" + fl));
-            }*/
             return;
         }
         
@@ -367,6 +353,9 @@ QString HotaruFileTransfer::createLog(QString str)
     return "[" + timeStr + "] " + str;
 }
 
+/**
+* @brief 用超时来处理设备离线
+*/
 void HotaruFileTransfer::deviceTimeout()
 {
     for (int i = 0; i < devices.size(); ++i)
@@ -375,13 +364,16 @@ void HotaruFileTransfer::deviceTimeout()
         if (devices[i].lifeTime <= 0)
         {
             devices.removeAt(i);
-            --i;
+            --i;//移除i处的元素后i指到了新的元素上，需要回退一位
             refreshTable();
         }
     }
 }
 
-void HotaruFileTransfer::refreshTable()
+/**
+* @brief 刷新设备列表
+*/
+void HotaruFileTransfer::refreshTable()//
 {
     ui->deviceList->clearContents();
     ui->deviceList->setRowCount(0);
@@ -404,6 +396,9 @@ void HotaruFileTransfer::refreshTable()
     }
 }
 
+/**
+* @brief 更新进度条
+*/
 void HotaruFileTransfer::updateProgressBar()
 {
     if (ui->stackedWidget->currentIndex() == 1)//server
@@ -429,6 +424,9 @@ void HotaruFileTransfer::updateProgressBar()
     }
 }
 
+/**
+* @brief 发送完成后启用按钮
+*/
 void HotaruFileTransfer::finishSendingFile()
 {
     ui->btn_serverSendFile->setEnabled(true);
@@ -438,6 +436,12 @@ void HotaruFileTransfer::finishSendingFile()
     ui->btn_serverChooseFile->setEnabled(true);;
 }
 
+/**
+* @brief 实际发送文件的代码
+* @param file：文件在本机的绝对路径，用于打开文件
+* @param fileName：文件发送后的相对路径，用于保存文件
+* @return 发送是否成功
+*/
 bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
 {
     static constexpr int fragSize = 1024;//以1024B作文件块大小
@@ -474,10 +478,12 @@ bool HotaruFileTransfer::sendSingleFile(QString file, QString fileName)
 
     updateProgressBar();
 
-    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return true;
 }
 
+/**
+* @brief 处理发送多个文件，最终交给sendSingleFile发送
+*/
 void HotaruFileTransfer::sendFiles(QStringList files)
 {
     if (files.length() == 0)
@@ -510,13 +516,18 @@ void HotaruFileTransfer::sendFiles(QStringList files)
     return;
 }
 
+/**
+* @brief 递归找出文件夹中所有文件
+* @param dirPath：本次处理的文件夹
+* @return 所有文件
+*/
 QFileInfoList HotaruFileTransfer::getDirFiles(QString dirPath)
 {
     QDir dir(dirPath);
-    auto fileList = dir.entryInfoList(QDir::Files | QDir::Hidden | QDir::NoSymLinks);
-    auto folderList = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+    auto fileList = dir.entryInfoList(QDir::Files | QDir::Hidden | QDir::NoSymLinks);//列出文件
+    auto folderList = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);//列出子文件夹
 
-    for (auto& folder : folderList)
+    for (auto& folder : folderList)//递归所有子文件夹
     {
         auto childFileList = getDirFiles(folder.absoluteFilePath());
         fileList.append(childFileList);
@@ -525,14 +536,17 @@ QFileInfoList HotaruFileTransfer::getDirFiles(QString dirPath)
     return fileList;
 }
 
+/**
+* @brief 处理发送文件夹，最终交给sendSingleFile发送
+*/
 void HotaruFileTransfer::sendDirectory(QString dir)
 {
-    dir.replace('\\','/');
+    dir.replace('\\','/');//把路径分隔符统一格式
     auto files = getDirFiles(dir);
-    int counter = 0;
+    int counter = 0;//发送文件计数
     for (auto& file : files)
     {
-        auto relativeName = file.absoluteFilePath().replace(dir, dir.split("/").last());
+        auto relativeName = file.absoluteFilePath().replace(dir, dir.split("/").last());//把文件绝对路径中属于发送的文件夹的父目录的部分替换成文件夹名
         //ui->serverLog->append(file.absoluteFilePath() + "   " + relativeName);
         
         if (sendSingleFile(file.absoluteFilePath(), relativeName))
