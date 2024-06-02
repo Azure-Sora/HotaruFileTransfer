@@ -20,7 +20,7 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
     * 软件初始化部分
     * 
     */
-    setWindowIcon(QIcon(":/HotaruFileTransfer/assets/icon.jpg"));
+    setWindowIcon(QIcon(":/HotaruFileTransfer/assets/icon.png"));
 
     ui->stackedWidget->setCurrentIndex(0);
 
@@ -47,6 +47,12 @@ HotaruFileTransfer::HotaruFileTransfer(QWidget *parent)
 
     //发送方界面
     ui->filePathEdit->setPlaceholderText("请输入文件或文件夹路径...");
+
+    //关于界面
+    connect(ui->about, &QMenu::aboutToShow, [=]() {
+        auto a = new AboutWindow(this);
+        a->show();
+        });
 
     //选中设备才能按连接
     ui->btn_connectTo->setEnabled(false);

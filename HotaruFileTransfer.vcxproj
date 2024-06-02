@@ -83,8 +83,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AboutWindow.cpp" />
     <ClCompile Include="NetworkUtil.cpp" />
     <QtRcc Include="HotaruFileTransfer.qrc" />
+    <QtUic Include="AboutWindow.ui" />
     <QtUic Include="HotaruFileTransfer.ui" />
     <QtMoc Include="HotaruFileTransfer.h" />
     <ClCompile Include="ActiveDevice.cpp" />
@@ -95,8 +97,9 @@
     <QtMoc Include="ActiveDevice.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="NetworkUtil.h" />
     <ClInclude Include="resource.h" />
+    <QtMoc Include="AboutWindow.h" />
+    <ClInclude Include="NetworkUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="HotaruFileTransfer.rc" />

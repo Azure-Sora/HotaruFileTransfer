@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/HotaruFileTransfer">
-        <file>assets/icon.jpg</file>
+        <file>assets/about.jpg</file>
+        <file>assets/icon.png</file>
     </qresource>
 </RCC>

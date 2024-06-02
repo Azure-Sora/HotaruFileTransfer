@@ -15,6 +15,7 @@
 #include <QDataStream>
 #include "ActiveDevice.h"
 #include "NetworkUtil.h"
+#include "AboutWindow.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class HotaruFileTransferClass; };
